@@ -1150,6 +1150,19 @@ int drm_fb_blit(struct iosys_map *dst, const unsigned int *dst_pitch, uint32_t d
 			drm_fb_swab(dst, dst_pitch, src, fb, clip, false, state);
 			return 0;
 		}
+	} else if (dst_format == DRM_FORMAT_XRGB8888) {
+		/*
+		 * Android renders into ARGB8888 and ABGR8888 / XBGR8888 buffers. The
+		 * display ignores alpha, so ARGB8888 is copied as is, and swapping red
+		 * and blue converts XRGB8888 to XBGR8888 and back.
+		 */
+		if (fb_format == DRM_FORMAT_ARGB8888) {
+			drm_fb_memcpy(dst, dst_pitch, src, fb, clip);
+			return 0;
+		} else if (fb_format == DRM_FORMAT_XBGR8888 || fb_format == DRM_FORMAT_ABGR8888) {
+			drm_fb_xrgb8888_to_xbgr8888(dst, dst_pitch, src, fb, clip, state);
+			return 0;
+		}
 	}
 
 	drm_warn_once(fb->dev, "No conversion helper from %p4cc to %p4cc found.\n",

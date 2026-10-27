@@ -790,7 +790,7 @@ static struct simpledrm_device *simpledrm_device_create(struct drm_driver *drv,
 	struct drm_encoder *encoder;
 	struct drm_connector *connector;
 	unsigned long max_width, max_height;
-	size_t nformats;
+	size_t nformats, i;
 	int ret;
 
 	sdev = devm_drm_dev_alloc(&pdev->dev, drv, struct simpledrm_device, dev);
@@ -951,6 +951,22 @@ static struct simpledrm_device *simpledrm_device_create(struct drm_driver *drv,
 
 	nformats = drm_fb_build_fourcc_list(dev, &format->format, 1,
 					    sdev->formats, ARRAY_SIZE(sdev->formats));
+
+	/*
+	 * Android renders into ARGB8888 and ABGR8888 / XBGR8888 buffers, which
+	 * drm_fb_blit() converts to an XRGB8888 framebuffer.
+	 */
+	if (format->format == DRM_FORMAT_XRGB8888) {
+		static const u32 android_fourccs[] = {
+			DRM_FORMAT_ARGB8888,
+			DRM_FORMAT_ABGR8888,
+			DRM_FORMAT_XBGR8888,
+		};
+
+		for (i = 0; i < ARRAY_SIZE(android_fourccs) &&
+			    nformats < ARRAY_SIZE(sdev->formats); ++i)
+			sdev->formats[nformats++] = android_fourccs[i];
+	}
 
 	primary_plane = &sdev->primary_plane;
 	ret = drm_universal_plane_init(dev, primary_plane, 0, &simpledrm_primary_plane_funcs,
